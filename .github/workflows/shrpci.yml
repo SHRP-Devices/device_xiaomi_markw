@@ -1,9 +1,10 @@
 name: SHRP CI
 on:
   workflow_dispatch:
-  watch:
-      types: [started]
-
+    inputs:
+      pushtosf:
+        description: 'set this to true if you wanna push to sf (all small)'
+        required: true
 env:
   MANIFEST: "git://github.com/SHRP/platform_manifest_twrp_omni.git -b v3_9.0"
   # Recovery Manifest URL with -b branch
@@ -50,4 +51,30 @@ jobs:
                   -F chat_id="-1001296548298" \
                   -F "disable_web_page_preview=true" \
                   -F "parse_mode=html" \
-                  -F caption=" <i> SHRP AddOnRescue </i> for <b> '$VENDOR' '$CODENAME' </b> | <i> #SHRP Recovery </i> " 
+                  -F caption=" <i> SHRP AddOnRescue </i> for <b> '$VENDOR' '$CODENAME' </b> | <i> #SHRP Recovery </i> "
+
+       - name: PUSH to SF
+         if: ${{ github.event.inputs.pushtosf }} == 'true'
+         run: |
+              cd ${BuildPath}/out/target/product/${CODENAME}/
+              sudo apt-get update -y && sudo apt-get install expect -y
+              expect -c '
+              spawn sftp ${{ secrets.SFUSER }}@frs.sourceforge.net
+              expect \"yes/no\"
+              send "yes\r"
+              expect \"Password\"       
+              send "${{ secrets.SFPASS }}\r"
+              expect \"sftp> \"
+              send "cd /home/frs/project/shrp/Markw/\r"
+              set timeout -1
+              send "put *stable*.zip\r"
+              expect "Uploading"
+              expect "*100%*"
+              expect "sftp*"
+              send "put *AddonRescue*.zip\r"
+              expect "Uploading"
+              expect "*100%*"
+              expect "sftp*"
+              send "bye\r"
+              interact
+              '
